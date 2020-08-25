@@ -1,8 +1,8 @@
-# A breakout_love2d_demo
+# A parallax_love2d
 
-Simple breakout game just to try to use LOVE2D and LUA.
+Simple demo to test parallax using LOVE2D and LUA.
 
-![A screenshot](breakout_screenshot.png)
+![A screenshot](parallax_screenshot.png)
 
 ## Getting Started
 
@@ -23,18 +23,18 @@ In other system, please check the official sites:
 
 No installing needed. Just download this repo.
 ```
-git clone https://github.com/Blackmane/breakout_love2d_demo
+git clone https://github.com/Blackmane/parallax_love2d
 ```
 
 ### Run
 
 Simple run
 ```
-love breakout_love2d_demo/
+love parallax_love2d/
 ```
 
-## Acknowledgments
+## Gif
 
-* Inspired by [Gabriele's talk for GDG PISA](https://www.youtube.com/watch?v=f_0LVro9mhg)
+![A gif](parallax_gif.gif)
 
 

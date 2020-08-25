@@ -1,138 +1,118 @@
- --
- -- @file    main.lua
- -- @brief   
- -- @project breakout_love2d_demo
- -- 
- -- @author  Niccolò Pieretti
- -- @date    20 May 2020
- -- @bug     some collision edge cases during movement
- -- @todo    add music
- -- @todo    score and game over
- -- 
- -----------------------------------------------------------------------------
- --                                              
- --             _  _   o   __  __   __    _  o   _   ,_    _  
- --            / |/ |  |  /   /    /  \_|/ \_|  |/  /  |  |/  
- --              |  |_/|_/\__/\___/\__/ |__/ |_/|__/   |_/|__/
- --                                    /|                     
- --                                    \|     
- ----------------------------------------------------------------------------/
+--
+-- @file    main.lua
+-- @brief   
+-- @project parallax_love2d
+-- 
+-- @author  Niccolò Pieretti
+-- @date    24 Aug 2020
+-- @todo    boundary check
+-- 
+-----------------------------------------------------------------------------
+--                                              
+--             _  _   o   __  __   __    _  o   _   ,_    _  
+--            / |/ |  |  /   /    /  \_|/ \_|  |/  /  |  |/  
+--              |  |_/|_/\__/\___/\__/ |__/ |_/|__/   |_/|__/
+--                                    /|                     
+--                                    \|     
+----------------------------------------------------------------------------/
 
 -- ##### ##### Constants & variables ##### #####
 
 -- Screen dimensions
 local SCREEN_WIDTH = 800
 local SCREEN_HEIGHT = 600
-local SCREEN_OFFSET = 8
 
-local GAME_TITLE = "Breakout LOVE2d Demo"
-local BALL_MAX_VELOCITY_X = 200
-local BALL_MAX_VELOCITY_Y = 300
+local GAME_TITLE = "Parallax LOVE2d"
 
-local BLOCK_AREA_OFFSET_TOP = 60
-local BLOCK_AREA_LINES = 6
-local BLOCK_AREA_COLUMNS = 8
-local BLOCK_SIZE_W = 97
-local BLOCK_SIZE_H = 19
-local BLOCK_BORDER = 1
+local PLAYER_MOVE_OFFSET = 10
 
--- Used for blocks
+local MOUNTAINS1_SPACE = 100
+local MOUNTAINS1_HEIGHT_HIGH = 20
+local MOUNTAINS1_HEIGHT_LOW = 90
+local MOUNTAINS1_MAX_OFFSET = { x = 100, y = 120 }
+
+local MOUNTAINS2_SPACE = 80
+local MOUNTAINS2_HEIGHT_HIGH = 70
+local MOUNTAINS2_HEIGHT_LOW = 170
+local MOUNTAINS2_MAX_OFFSET = { x = 80, y = 100 }
+
+local MOUNTAINS3_SPACE = 80
+local MOUNTAINS3_HEIGHT_HIGH = 150
+local MOUNTAINS3_HEIGHT_LOW = 260
+local MOUNTAINS3_MAX_OFFSET = { x = 120, y = 80}
+
+
+-- Used for mountains
 local COLORS = {
-  { 235,  78,  70 }, -- Red
-  { 255, 160,   0 }, -- Ocher
-  { 243, 177,  83 }, -- Orange
-  { 252, 238,  91 }, -- Yellow
-  { 110, 220,  79 }, -- Green fluo
-  {  93, 173, 249 }, -- Cyan
+  { 186, 180, 218 }, 
+  { 109, 102, 170 }, 
+  {  53,  44, 133 }, 
 }
-
--- Handle start ball
-local isStart = false
 
 -- ##### ##### Game objects ##### #####
+local mountains_1 = {}
+local mountains_2 = {}
+local mountains_3 = {}
 
-local BLOCKS = {}
-
-local ball = {
-  velocity = { x = 0, y = 0},
-  position = { x = 0, y = 0},
-  size = { w = 10, h = 10},
+local offset = {
+  {velocity = { x = 20, y = 0}, position = { x = 0, y = 0}},
+  {velocity = { x = 60, y = 0}, position = { x = 0, y = 0}},
+  {velocity = { x = 120, y = 0}, position = { x = 0, y = 0}},
 }
 
-local paddle = {
-  velocity = { x = 300, y = 0},
+local player = {
+  velocity = { x = 100, y = 0},
   position = { x = 0, y = 0},
-  size = { w = 120, h = 16},
+  size = { w = 30, h = 50},
 }
 
 -- ##### ##### Support functions ##### ##### 
 
--- Check collision between two rectangle
-local function aabb( a, b )
-  return (
-    a.position.x <= b.position.x + b.size.w and
-    a.position.x + a.size.w >= b.position.x and
-    a.position.y <= b.position.y + b.size.h and
-    a.position.y + a.size.h >= b.position.y
-  )
-end
-
-local function movePaddle (dt)
-  -- Handle keyboard
-  if love.keyboard.isDown ('left') then
-    paddle.position.x = paddle.position.x - paddle.velocity.x * dt
-  end
-  if love.keyboard.isDown ('right') then
-    paddle.position.x = paddle.position.x + paddle.velocity.x * dt
-  end
-  
-  -- Check boundaries collision
-  if paddle.position.x < SCREEN_OFFSET then
-    paddle.position.x = SCREEN_OFFSET
-  end
-  if paddle.position.x + paddle.size.w > SCREEN_WIDTH - SCREEN_OFFSET then
-    paddle.position.x = SCREEN_WIDTH - SCREEN_OFFSET - paddle.size.w
-  end
-end
-
-local function moveBall (dt)
-  ball.position.x = ball.position.x + ball.velocity.x * dt
-  ball.position.y = ball.position.y + ball.velocity.y * dt
-end
-
-local function checkBallBlockCollision ()
-  -- Check Blocks collision
-  for i, block in pairs(BLOCKS) do
-    if ( aabb(ball, block) ) then
-      table.remove ( BLOCKS, i )
-      ball.velocity.y = -ball.velocity.y
+-- Create a line of mountains
+local function createMountainsLine (mountains, start, size, step, height_high, height_low, offset)
+  next_x = start
+  next_y = height_low
+  mountains[0] = {x = next_x, y = next_y}
+  for i = 1, size -1 do
+    mountains[i] = {x = next_x + offset.x * math.random(), y = next_y}
+    next_x = next_x + step
+    if next_y > height_high then
+      next_y = height_low + offset.y * math.random()
+    else
+      next_y = height_high + offset.y * math.random()
     end
   end
+  mountains[size -1] = {x = next_x, y = next_y}
 end
 
-local function checkBallCollision ()
-  -- Check paddle collision
-  if ( aabb(ball, paddle) ) then
-    ball.velocity.y = -ball.velocity.y 
-    -- Handle like "spin effect"
-    ball.velocity.x = (ball.position.x - paddle.position.x) * BALL_MAX_VELOCITY_X * 2 / paddle.size.w - BALL_MAX_VELOCITY_X
-  end
-  -- Check boundaries collision
-  if ball.position.x < SCREEN_OFFSET or 
-    ball.position.x + ball.size.w > SCREEN_WIDTH - SCREEN_OFFSET then
-    ball.velocity.x = -ball.velocity.x 
-  end
-  if ball.position.y < SCREEN_OFFSET or 
-    ball.position.y + ball.size.h > SCREEN_HEIGHT - SCREEN_OFFSET then
-    ball.velocity.y = -ball.velocity.y -- TODO: game over
+-- Create all line of mountains
+local function createAllMountains ()
+  start1 = - (SCREEN_WIDTH / 2)
+  start2 = start1 * (offset[2].velocity.x / offset[1].velocity.x)
+  start3 = start1 * (offset[3].velocity.x / offset[1].velocity.x)
+
+  size1 = SCREEN_WIDTH / MOUNTAINS1_SPACE * ( 1 +1)
+  size2 = SCREEN_WIDTH / MOUNTAINS2_SPACE * ((offset[2].velocity.x / offset[1].velocity.x) +1)
+  size3 = SCREEN_WIDTH / MOUNTAINS3_SPACE * ((offset[3].velocity.x / offset[1].velocity.x) +1)
+
+  createMountainsLine (mountains_1, start1, size1, MOUNTAINS1_SPACE, MOUNTAINS1_HEIGHT_HIGH, MOUNTAINS1_HEIGHT_LOW, MOUNTAINS1_MAX_OFFSET)
+  createMountainsLine (mountains_2, start2, size2, MOUNTAINS2_SPACE, MOUNTAINS2_HEIGHT_HIGH, MOUNTAINS2_HEIGHT_LOW, MOUNTAINS2_MAX_OFFSET)
+  createMountainsLine (mountains_3, start3, size3, MOUNTAINS3_SPACE, MOUNTAINS3_HEIGHT_HIGH, MOUNTAINS3_HEIGHT_LOW, MOUNTAINS3_MAX_OFFSET)
+end
+
+-- Draw mountains
+local function drawMountains (mountains, offset, r, g, b, a)
+  love.graphics.setColor(r, g, b, a)
+
+  for i = 0, #mountains - 1 do
+    love.graphics.polygon('fill', 
+        mountains[i].x + offset.x, mountains[i].y + offset.y, 
+        mountains[i+1].x + offset.x, mountains[i+1].y + offset.y, 
+        mountains[i+1].x + offset.x, SCREEN_HEIGHT, 
+        mountains[i].x + offset.x, SCREEN_HEIGHT)
   end
 end
 
--- Check all ball collision
-local function checkCollisions ()
-  checkBallCollision ()
-  checkBallBlockCollision ()
-end
 
 -- ##### ##### LOVE2D callbacks ##### ##### 
 
@@ -144,55 +124,51 @@ function love.load()
     resizable = false,
   })
 
-  -- Init paddle
-  paddle.position.y = SCREEN_HEIGHT - paddle.size.h - SCREEN_OFFSET * 2
-  paddle.position.x = SCREEN_WIDTH /2 - paddle.size.w /2
+  math.randomseed(os.time())
 
-  -- Init ball
-  ball.position.y = SCREEN_HEIGHT * 3/4
-  ball.position.x = SCREEN_WIDTH /2 - ball.size.w /2
+  -- Init background
+  createAllMountains()
 
-  -- Init blocks
-  for i = 0, BLOCK_AREA_COLUMNS - 1 do
-    local x = (i * (BLOCK_SIZE_W + BLOCK_BORDER)) + SCREEN_OFFSET
-    for j = 0, BLOCK_AREA_LINES - 1 do
-      local y = (j * (BLOCK_SIZE_H + BLOCK_BORDER)) + SCREEN_OFFSET + BLOCK_AREA_OFFSET_TOP
-      table.insert(BLOCKS, {
-        color = COLORS[j + 1],
-        position = {x = x, y = y},
-        size = {w = BLOCK_SIZE_W, h = BLOCK_SIZE_H}
-      })
-    end
-  end
-  
+  -- Init player
+  player.position.x = (SCREEN_WIDTH - player.size.w) / 2;
+  player.position.y = (SCREEN_HEIGHT - player.size.h);
 end
+
 
 function love.update(dt)
-  checkCollisions ()
-  movePaddle (dt)
-  if isStart then
-    moveBall (dt)
-  else
-    -- Start ball if space key is down
-    if love.keyboard.isDown (' ') then
-      ball.velocity.y = BALL_MAX_VELOCITY_Y
-      isStart = true
-    end
+  -- Move player and background
+  if love.keyboard.isDown ('left') then
+    player.position.x = player.position.x - player.velocity.x * dt
+    player.position.x = math.max(SCREEN_WIDTH / 2 - PLAYER_MOVE_OFFSET, player.position.x )
+    offset[1].position.x = offset[1].position.x + offset[1].velocity.x * dt
+    offset[2].position.x = offset[2].position.x + offset[2].velocity.x * dt
+    offset[3].position.x = offset[3].position.x + offset[3].velocity.x * dt
   end
+  if love.keyboard.isDown ('right') then
+    player.position.x = player.position.x + player.velocity.x * dt
+    player.position.x = math.min(SCREEN_WIDTH / 2 + PLAYER_MOVE_OFFSET, player.position.x )
+    offset[1].position.x = offset[1].position.x - offset[1].velocity.x * dt
+    offset[2].position.x = offset[2].position.x - offset[2].velocity.x * dt
+    offset[3].position.x = offset[3].position.x - offset[3].velocity.x * dt
+  end
+
 end
 
+
+function love.mousepressed(x, y, button)
+    -- Test mountains line
+    createAllMountains ()
+end
+
+
 function love.draw()
+  -- Draw Mountains
+  drawMountains(mountains_1, offset[1].position, COLORS[1][1], COLORS[1][2], COLORS[1][3], 255)
+  drawMountains(mountains_2, offset[2].position, COLORS[2][1], COLORS[2][2], COLORS[2][3], 255)
+  drawMountains(mountains_3, offset[3].position, COLORS[3][1], COLORS[3][2], COLORS[3][3], 255)
+
   -- Color white
   love.graphics.setColor(255, 255, 255, 255)
-  -- Draw paddle
-  love.graphics.rectangle('fill', paddle.position.x, paddle.position.y, paddle.size.w, paddle.size.h)
-  -- Draw ball
-  love.graphics.rectangle('fill', ball.position.x, ball.position.y, ball.size.w, ball.size.h)
-
-  -- Draw coloured blocks
-  for _, block in pairs(BLOCKS) do
-    love.graphics.setColor(block.color[1], block.color[2], block.color[3], 255)
-    love.graphics.rectangle('fill', block.position.x, block.position.y, block.size.w, block.size.h)
-  end
-  
+  -- Draw player
+  love.graphics.rectangle('fill', player.position.x, player.position.y, player.size.w, player.size.h)
 end
